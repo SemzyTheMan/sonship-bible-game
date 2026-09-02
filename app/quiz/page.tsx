@@ -35,6 +35,24 @@ const levelNames: Record<Level, string> = {
   hard: "Prophecy Son",
 };
 
+const resultMessages: Record<Level, { low: string; middle: string; high: string }> = {
+  simple: {
+    low: "Oh Son, pay attention to reading. Return to the Word and build your foundation.",
+    middle: "Oh Son, press on in the Word. Keep journeying higher.",
+    high: "Oh Son, Testimony awaits. Give diligence and press further.",
+  },
+  intermediate: {
+    low: "Oh Son, do not be dismayed. Keep warring, and let the Word strengthen your testimony.",
+    middle: "Oh Son, your testimony grows stronger. Hold fast, and keep pressing toward Prophecy.",
+    high: "Oh Son, Prophecy calls. You have kept the testimony—press on to the deeper things.",
+  },
+  hard: {
+    low: "Oh Son, do not be dismayed! Draw strength from the Testimony and rise again.",
+    middle: "Oh Son, you are drawing near. Search the letters carefully and press toward mastery.",
+    high: "Oh Son, the Book awaits. Press on.",
+  },
+};
+
 function isLevel(value: string | null): value is Level {
   return value === "simple" || value === "intermediate" || value === "hard";
 }
@@ -181,11 +199,12 @@ export default function QuizPage() {
   const answeredTotal = Object.keys(game.answers).length;
 
   if (game.completed) {
-    const resultMessage = percentage >= 80
-      ? "Outstanding! You know these letters well."
-      : percentage >= 60
-        ? "Strong work! Your next run can go even higher."
-        : "Good start! Review the misses and rise again.";
+    const messages = resultMessages[game.level];
+    const resultMessage = percentage < 50
+      ? messages.low
+      : percentage < 75
+        ? messages.middle
+        : messages.high;
 
     return (
       <main className="quiz-shell result-shell">
