@@ -14,7 +14,7 @@ const levels = [
     mark: "W",
     tagline: "Start with the foundations.",
     description: "Recognisable people, places, and well-known verse completions.",
-    questions: 21,
+    questions: 12,
   },
   {
     id: "intermediate",
@@ -24,7 +24,7 @@ const levels = [
     mark: "T",
     tagline: "Put your memory to work.",
     description: "Verse locations, names, sequences, and detailed letter knowledge.",
-    questions: 21,
+    questions: 12,
   },
   {
     id: "hard",
@@ -34,7 +34,7 @@ const levels = [
     mark: "P",
     tagline: "Only the sharpest prevail.",
     description: "Close verse references and deceptively similar answer choices.",
-    questions: 18,
+    questions: 12,
   },
 ] as const;
 

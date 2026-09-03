@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import questionData from "../data/data.json";
 
 const QUESTIONS_PER_BATCH = 5;
+const QUESTIONS_PER_BOOK = 4;
+const QUESTIONS_PER_GAME = 12;
 const GAME_KEY = "loveseal:quiz-progress";
 
 type Level = "simple" | "intermediate" | "hard";
@@ -26,6 +28,8 @@ type SavedGame = {
   currentBatch: number;
   completed: boolean;
 };
+
+type ReviewFilter = "all" | "correct" | "missed";
 
 const questions = questionData as Question[];
 
@@ -53,19 +57,70 @@ const resultMessages: Record<Level, { low: string; middle: string; high: string 
   },
 };
 
+const questionReferences: Record<number, string> = {
+  1: "1 Timothy 1:1", 2: "1 Timothy 1:3", 3: "1 Timothy 2:5", 4: "1 Timothy 4:12",
+  5: "1 Timothy 5:23", 6: "1 Timothy 6:6", 7: "1 Timothy 6:10", 8: "1 Timothy 1:20",
+  9: "1 Timothy 2:1–2", 10: "1 Timothy 3:15", 11: "1 Timothy 4:13", 12: "1 Timothy 5:9",
+  13: "1 Timothy 5:19", 14: "1 Timothy 6:12", 15: "1 Timothy 4:4", 16: "1 Timothy 4:6",
+  17: "1 Timothy 5:10", 18: "1 Timothy 5:21", 19: "1 Timothy 6:11", 20: "1 Timothy 6:20",
+  21: "2 Timothy 1:5", 22: "2 Timothy 1:5", 23: "2 Timothy 1:7", 24: "2 Timothy 2:3",
+  25: "2 Timothy 4:7", 26: "2 Timothy 4:11", 27: "2 Timothy 4:13", 28: "2 Timothy 1:15",
+  29: "2 Timothy 1:16–17", 30: "2 Timothy 2:15", 31: "2 Timothy 3:8", 32: "2 Timothy 3:11",
+  33: "2 Timothy 3:16", 34: "2 Timothy 4:10", 35: "2 Timothy 2:10", 36: "2 Timothy 2:17",
+  37: "2 Timothy 2:17", 38: "2 Timothy 2:22", 39: "2 Timothy 4:10", 40: "2 Timothy 4:20",
+  41: "Titus 1:1", 42: "Titus 1:5", 43: "Titus 1:5", 44: "Titus 1:12",
+  45: "Titus 2:6", 46: "Titus 3:2", 47: "Titus 3:12", 48: "Titus 1:4",
+  49: "Titus 1:8", 50: "Titus 2:3", 51: "Titus 2:10", 52: "Titus 2:13",
+  53: "Titus 3:10", 54: "Titus 3:13", 55: "Titus 1:2", 56: "Titus 1:7",
+  57: "Titus 1:15", 58: "Titus 2:12", 59: "Titus 3:9", 60: "Titus 3:12",
+};
+
+const learningNotes: Partial<Record<number, string>> = {
+  8: "Hymenaeus and Alexander are the pair named here. Hymenaeus and Philetus appear together later in 2 Timothy 2:17.",
+  12: "The KJV says a widow taken into the number should be at least threescore years old—sixty years.",
+  13: "The letter requires two or three witnesses before an accusation against an elder is received.",
+  17: "The sequence is important: lodging strangers is followed by washing the saints’ feet, then relieving the afflicted.",
+  21: "Lois was Timothy’s grandmother. Eunice, who is named in the same verse, was his mother.",
+  22: "Eunice was Timothy’s mother, while Lois was his grandmother. Both are remembered for their unfeigned faith.",
+  28: "Phygellus and Hermogenes are named as having turned away. Hymenaeus and Philetus are the pair connected with false teaching in chapter 2.",
+  31: "Jannes and Jambres are the two names linked with resisting Moses; the other pairs belong to different passages.",
+  34: "Demas went to Thessalonica. In the same verse, Crescens went to Galatia and Titus to Dalmatia.",
+  37: "Hymenaeus and Philetus are named after the image of words spreading like a canker. Alexander is paired with Hymenaeus in 1 Timothy.",
+  39: "The three destinations are close together: Demas—Thessalonica, Crescens—Galatia, and Titus—Dalmatia.",
+  40: "Keep the locations paired correctly: Erastus stayed at Corinth, while Trophimus was left sick at Miletum.",
+  42: "Titus was left in Crete to set in order what remained and appoint elders in every city.",
+  47: "Paul asked Titus to come to Nicopolis because he had decided to spend the winter there.",
+  48: "Titus is called Paul’s own son after the common faith. In 2 Timothy 1:2, Timothy is called his dearly beloved son.",
+  54: "Zenas the lawyer and Apollos were to be helped on their journey. Artemas and Tychicus are named in the previous verse.",
+  60: "Paul might send either Artemas or Tychicus to Titus before Titus travelled to meet him at Nicopolis.",
+};
+
 function isLevel(value: string | null): value is Level {
   return value === "simple" || value === "intermediate" || value === "hard";
 }
 
-function shuffledIds(level: Level) {
-  const ids = questions.filter((question) => question.level === level).map((question) => question.id);
+function shuffle<T>(items: T[]) {
+  const shuffled = [...items];
 
-  for (let index = ids.length - 1; index > 0; index -= 1) {
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
     const randomIndex = Math.floor(Math.random() * (index + 1));
-    [ids[index], ids[randomIndex]] = [ids[randomIndex], ids[index]];
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
   }
 
-  return ids;
+  return shuffled;
+}
+
+function shuffledIds(level: Level) {
+  const books = ["1 Timothy", "2 Timothy", "Titus"];
+  const balancedSelection = books.flatMap((book) =>
+    shuffle(
+      questions.filter((question) => question.level === level && question.book === book),
+    )
+      .slice(0, QUESTIONS_PER_BOOK)
+      .map((question) => question.id),
+  );
+
+  return shuffle(balancedSelection);
 }
 
 function createGame(level: Level): SavedGame {
@@ -78,9 +133,21 @@ function createGame(level: Level): SavedGame {
   };
 }
 
+function getLearningPoint(question: Question) {
+  return learningNotes[question.id]
+    ?? `The correct answer is “${question.answer}.” You can verify this detail in ${questionReferences[question.id]}.`;
+}
+
+function joinBookNames(bookNames: string[]) {
+  if (bookNames.length <= 1) return bookNames[0] ?? "";
+  if (bookNames.length === 2) return `${bookNames[0]} and ${bookNames[1]}`;
+  return `${bookNames.slice(0, -1).join(", ")}, and ${bookNames.at(-1)}`;
+}
+
 export default function QuizPage() {
   const [game, setGame] = useState<SavedGame | null>(null);
   const [ready, setReady] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("all");
 
   useEffect(() => {
     const selectedLevel = window.localStorage.getItem("loveseal:selected-level");
@@ -99,7 +166,10 @@ export default function QuizPage() {
         if (
           parsed.level === selectedLevel &&
           Array.isArray(parsed.questionIds) &&
-          parsed.questionIds.length > 0
+          parsed.questionIds.length === QUESTIONS_PER_GAME &&
+          new Set(parsed.questionIds).size === QUESTIONS_PER_GAME &&
+          parsed.answers &&
+          typeof parsed.answers === "object"
         ) {
           nextGame = parsed;
         }
@@ -205,6 +275,31 @@ export default function QuizPage() {
       : percentage < 75
         ? messages.middle
         : messages.high;
+    const bookStats = ["1 Timothy", "2 Timothy", "Titus"].map((book) => {
+      const bookQuestions = orderedQuestions.filter((question) => question.book === book);
+      const correct = bookQuestions.filter(
+        (question) => game.answers[String(question.id)] === question.answer,
+      ).length;
+      return {
+        book,
+        correct,
+        total: bookQuestions.length,
+        percentage: Math.round((correct / bookQuestions.length) * 100),
+      };
+    });
+    const highestBookScore = Math.max(...bookStats.map((stat) => stat.percentage));
+    const lowestBookScore = Math.min(...bookStats.map((stat) => stat.percentage));
+    const strongestBooks = bookStats.filter((stat) => stat.percentage === highestBookScore);
+    const focusBooks = bookStats.filter((stat) => stat.percentage === lowestBookScore);
+    const balancedAcrossBooks = highestBookScore === lowestBookScore;
+    const readingAdvice = balancedAcrossBooks
+      ? `Your performance was evenly balanced across all three letters at ${highestBookScore}%. Review each letter, then return for a sharper run.`
+      : `Your strongest ${strongestBooks.length > 1 ? "letters were" : "letter was"} ${joinBookNames(strongestBooks.map((stat) => stat.book))} at ${highestBookScore}%. Give your next reading time to ${joinBookNames(focusBooks.map((stat) => stat.book))}, where you scored ${lowestBookScore}%.`;
+    const reviewQuestions = orderedQuestions.filter((question) => {
+      if (reviewFilter === "all") return true;
+      const isCorrect = game.answers[String(question.id)] === question.answer;
+      return reviewFilter === "correct" ? isCorrect : !isCorrect;
+    });
 
     return (
       <main className="quiz-shell result-shell">
@@ -226,6 +321,34 @@ export default function QuizPage() {
             <div><strong>{orderedQuestions.length}</strong><span>Total</span></div>
           </div>
 
+          <section className="book-analytics" aria-labelledby="book-analytics-title">
+            <div className="analytics-heading">
+              <span>Performance map</span>
+              <h2 id="book-analytics-title">Your letter-by-letter result</h2>
+            </div>
+            <div className="book-stat-grid">
+              {bookStats.map((stat) => (
+                <article className="book-stat-card" key={stat.book}>
+                  <div className="book-stat-topline">
+                    <strong>{stat.book}</strong>
+                    <span>{stat.percentage}%</span>
+                  </div>
+                  <div className="book-stat-bar" aria-label={`${stat.percentage}% in ${stat.book}`}>
+                    <span style={{ width: `${stat.percentage}%` }} />
+                  </div>
+                  <p>{stat.correct} of {stat.total} correct</p>
+                </article>
+              ))}
+            </div>
+            <div className="reading-advice">
+              <span aria-hidden="true">☀</span>
+              <div>
+                <strong>Your next move</strong>
+                <p>{readingAdvice}</p>
+              </div>
+            </div>
+          </section>
+
           <div className="result-actions">
             <button type="button" className="primary-cta" onClick={restartQuiz}>
               <span>Play again</span><span className="cta-arrow" aria-hidden="true">↻</span>
@@ -233,27 +356,56 @@ export default function QuizPage() {
             <Link href="/levels" className="secondary-cta">Change level</Link>
           </div>
 
-          {correctCount < orderedQuestions.length && (
-            <div className="review-panel">
-              <div className="review-heading">
-                <span>Review round</span>
-                <strong>Learn from the close calls</strong>
-              </div>
-              {orderedQuestions
-                .filter((question) => game.answers[String(question.id)] !== question.answer)
-                .map((question, index) => (
-                  <article className="review-item" key={question.id}>
+          <div className="review-panel">
+            <div className="review-heading">
+              <span>Review round</span>
+              <strong>See what you knew—and what to learn</strong>
+            </div>
+            <div className="review-filters" role="group" aria-label="Filter reviewed questions">
+              {(["all", "correct", "missed"] as ReviewFilter[]).map((filter) => {
+                const count = filter === "all"
+                  ? orderedQuestions.length
+                  : filter === "correct"
+                    ? correctCount
+                    : orderedQuestions.length - correctCount;
+                return (
+                  <button
+                    type="button"
+                    key={filter}
+                    className={reviewFilter === filter ? "is-active" : ""}
+                    aria-pressed={reviewFilter === filter}
+                    onClick={() => setReviewFilter(filter)}
+                  >
+                    {filter} <span>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="review-list" aria-live="polite">
+              {reviewQuestions.map((question, index) => {
+                const playerAnswer = game.answers[String(question.id)];
+                const isCorrect = playerAnswer === question.answer;
+                return (
+                  <article className={`review-item ${isCorrect ? "is-correct" : "is-missed"}`} key={question.id}>
                     <span className="review-number">{String(index + 1).padStart(2, "0")}</span>
                     <div>
-                      <span className="question-book">{question.book}</span>
+                      <div className="review-item-topline">
+                        <span className="question-book">{question.book}</span>
+                        <span className="answer-status">{isCorrect ? "Correct ✓" : "Missed ✕"}</span>
+                      </div>
                       <h2>{question.question}</h2>
-                      <p><b>Your answer:</b> {game.answers[String(question.id)]}</p>
-                      <p className="correct-answer"><b>Correct answer:</b> {question.answer}</p>
+                      <p><b>Your answer:</b> {playerAnswer}</p>
+                      {!isCorrect && <p className="correct-answer"><b>Correct answer:</b> {question.answer}</p>}
+                      <div className="learning-point">
+                        <span>Learning point · {questionReferences[question.id]}</span>
+                        <p>{getLearningPoint(question)}</p>
+                      </div>
                     </div>
                   </article>
-                ))}
+                );
+              })}
             </div>
-          )}
+          </div>
         </section>
       </main>
     );
