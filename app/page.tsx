@@ -51,7 +51,7 @@ export default function Home() {
             <span>Enter the Quest</span>
             <span className="cta-arrow" aria-hidden="true">→</span>
           </Link>
-          <p className="micro-copy">3 ranks · 60 questions · One epic quest</p>
+          <p className="micro-copy">3 ranks · 3 letters · One epic quest</p>
         </div>
       </section>
 
