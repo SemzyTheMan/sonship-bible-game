@@ -24,6 +24,7 @@ type Question = {
 type SavedGame = {
   level: Level;
   questionIds: number[];
+  optionOrders: Record<string, string[]>;
   answers: Record<string, string>;
   currentBatch: number;
   completed: boolean;
@@ -124,9 +125,16 @@ function shuffledIds(level: Level) {
 }
 
 function createGame(level: Level): SavedGame {
+  const questionIds = shuffledIds(level);
+  const questionsById = new Map(questions.map((question) => [question.id, question]));
+  const optionOrders = Object.fromEntries(
+    questionIds.map((id) => [String(id), shuffle(questionsById.get(id)?.options ?? [])]),
+  );
+
   return {
     level,
-    questionIds: shuffledIds(level),
+    questionIds,
+    optionOrders,
     answers: {},
     currentBatch: 0,
     completed: false,
@@ -168,6 +176,9 @@ export default function QuizPage() {
           Array.isArray(parsed.questionIds) &&
           parsed.questionIds.length === QUESTIONS_PER_GAME &&
           new Set(parsed.questionIds).size === QUESTIONS_PER_GAME &&
+          parsed.optionOrders &&
+          typeof parsed.optionOrders === "object" &&
+          parsed.questionIds.every((id) => parsed.optionOrders[String(id)]?.length === 4) &&
           parsed.answers &&
           typeof parsed.answers === "object"
         ) {
@@ -461,7 +472,7 @@ export default function QuizPage() {
                   </div>
                 </div>
                 <div className="answer-grid">
-                  {question.options.map((option, optionIndex) => {
+                  {(game.optionOrders[String(question.id)] ?? question.options).map((option, optionIndex) => {
                     const isSelected = selectedAnswer === option;
                     return (
                       <label className={`answer-option${isSelected ? " is-selected" : ""}`} key={option}>
